@@ -1,26 +1,22 @@
-﻿using MySchool.Views;
-using System;
+﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 using System.Threading.Tasks;
 
 namespace MySchool.Models
 {
-    public class Course : CoursesViewModels
+    [Table("COURSE")]
+    public class Course
     {
-        public Course() { }
-        
-        public Course(CoursesViewModels _course)
-        {
-            registration = _course.registration;
-            course = _course.course;
-            classes = _course.classes;
-            horary = _course.horary;
-        }
-
-        public int Id { get; set; }
+        [Key]
+        public int IdCourse { get; set; }
+        [Required]
         public String registration { get; set; }
+        [Required]
         public String course { get; set; }
+        [Required]
         public String classes { get; set; }
         public DateTime horary { get; set; }
     }

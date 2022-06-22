@@ -1,119 +1,113 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using MySchool.Services;
+﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using MySchool.Models;
+using MySchool.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using MySchool.Api;
-
-// For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
 namespace MySchool.Controllers
 {
-    [Route("api/course")]
+    [Route("api/[controller]")]
     [ApiController]
-    public class CoursesController : Controller
+    [Produces("application/json")]
+    public class CoursesController : ControllerBase
     {
-        private readonly SchoolServices service;
+        private ICourseService _courseService;
 
-        public CoursesController(SchoolServices service)
+        public CoursesController(ICourseService courseService)
         {
-            this.service = service;
+            _courseService = courseService;
         }
-        
+
         [HttpGet]
-        public IActionResult Get()
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<IAsyncEnumerable<Course>>> GetCourses()
         {
-            var model = service.GetCourses();
-            var outputModel = ToOutputModel(model);
-            return Ok(outputModel);
+            try
+            {
+                var courses = await _courseService.GetCourses();
+                return Ok(courses);
+            }
+            catch
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, "Error getting courses");
+            }
         }
 
-        [HttpGet("{id}", Name = "GetCourse")]
-        public IActionResult Get(int id)
+        [HttpGet("{id:int}", Name= "GetCourse")]
+        public async Task<ActionResult<Course>> GetCourse(int id)
         {
-            var model = service.GetCourse(id);
-            if(model == null)
-                return NotFound();
-
-            var outputModel = ToOutputModel(model);
-            return Ok(outputModel);
-        }
-
-        private object ToOutputModel(Teacher model)
-        {
-            throw new NotImplementedException();
+            try
+            {
+                var courses = await _courseService.GetCourse(id);
+                if (courses == null)
+                    return NotFound($"There is no course with id = {id}");
+                return Ok(courses);
+            }
+            catch
+            {
+                return BadRequest("Request invalid");
+            }
         }
 
         [HttpPost]
-        public IActionResult Create([FromBody]CourseInputModel inputModel)
+        public async Task<ActionResult> Create(Course course)
         {
-            if (inputModel == null)
-                return BadRequest();
-            var model = ToDomainModel(inputModel);
-            service.AddCourse(model);
-            var outputModel = ToOutputModel(model);
-            return CreatedAtRoute("GetCourse", new { id = outputModel.Id }, outputModel);
+            try
+            {
+                await _courseService.CreateCourse(course);
+                return CreatedAtRoute(nameof(GetCourse), new { id = course.IdCourse }, course);
+            }
+            catch
+            {
+                return BadRequest("Request invalid");
+            }
         }
 
-        [HttpPut("{id}")]
-        public IActionResult Update(int id, [FromBody] CourseInputModel inputModel)
+        [HttpPut("{id:int}")]
+        public async Task<ActionResult> Edit(int id, [FromBody] Course course)
         {
-            if (inputModel == null || id != inputModel.Id)
-                return BadRequest();
-            if (!service.CourseExists(id))
-                return NotFound();
-            var model = ToDomainModel(inputModel);
-            service.UpdateCourse(model);
-            return NoContent();
+            try
+            {
+                if(course.IdCourse == id)
+                {
+                    await _courseService.UpdateCourse(course);
+                    return Ok($"Course with id = {id} has been successfully updated.");
+                }
+                else
+                {
+                    return BadRequest("Inconsistent data");
+                }
+            }
+            catch
+            {
+                return BadRequest("Request invalid");
+            }
         }
 
-        [HttpDelete("{id}")]
-        public IActionResult Delete(int id)
+        [HttpDelete("{id:int}")]
+        public async Task<ActionResult> Delete(int id)
         {
-            if (!service.CourseExists(id))
-                return NotFound();
-            service.DeleteCourse(id);
-            return NoContent();
-        }
-
-        private CourseOutputModel ToOutputModel(Course model)
-        {
-            return new CourseOutputModel
+            try
             {
-                Id = model.id,
-                Registration = model.registration,
-                Course = model.course,
-                Classes = model.classes,
-                Horary = model.horary
-            };
-        }
-        private List<CourseOutputModel> ToOutputModel(List<Course> model)
-        {
-            return model.Select(item => ToOutputModel(item)).ToList();
-        }
-        private Course ToDomainModel(CourseInputModel inputModel)
-        {
-            return new Course
+                var course = await _courseService.GetCourse(id);
+                if (course != null)
+                {
+                    await _courseService.DeleteCourse(course);
+                    return Ok($"Course Id = {id} was successfully deleted.");
+                }
+                else
+                {
+                    return NotFound($"Course with Id = {id} not found");
+                }
+            }
+            catch
             {
-                //Id = inputModel.id,
-                Registration = inputModel.registration,
-                Course = inputModel.course,
-                Classes = inputModel.classes,
-                Horary = inputModel.horary
-            };
-        }
-        private CourseInputModel ToInputModel(Course model)
-        {
-            return new CourseInputModel
-            {
-                //Id = model.id,
-                Registration = model.registration,
-                Course = model.course,
-                Classes = model.classes,
-                Horary = model.horary
-            };
+                return BadRequest("Request invalid");
+            }
         }
     }
 }

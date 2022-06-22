@@ -1,83 +1,128 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using MySchool.Models;
+using MySchool.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
-// For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
-
 namespace MySchool.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Produces("application/json")]
     public class TeachersController : ControllerBase
     {
-        // GET: api/<TeachersController>
+        private ITeacherService _teacherService;
+
+        public TeachersController(ITeacherService teacherService)
+        {
+            _teacherService = teacherService;
+        }
+
         [HttpGet]
-        public IEnumerable<string> Get()
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<IAsyncEnumerable<Teacher>>> GetTeachers()
         {
-            return new string[] { "value1", "value2" };
+            try
+            {
+                var teachers = await _teacherService.GetTeachers();
+                return Ok(teachers);
+            }
+            catch
+            {
+                //return BadRequest("Request invalido");
+                return StatusCode(StatusCodes.Status500InternalServerError, "Error getting teachers");
+            }
         }
 
-        // GET api/<TeachersController>/5
-        [HttpGet("{id}")]
-        public string Get(int id)
+        [HttpGet("TeachersByName")]
+        public async Task<ActionResult<IAsyncEnumerable<Teacher>>> GetTeachersByName([FromQuery] string nome)
         {
-            return "value";
+            try
+            {
+                var teachers = await _teacherService.GetTeachersByName(nome);
+                return Ok(teachers);
+            }
+            catch
+            {
+                return BadRequest("Request invalid");
+            }
         }
 
-        // POST api/<TeachersController>
+        [HttpGet("{id:int}", Name="GetTeacher")]
+        public async Task<ActionResult<Teacher>> GetTeacher(int id)
+        {
+            try
+            {
+                var teachers = await _teacherService.GetTeacher(id);
+                if (teachers == null)
+                    return NotFound($"There is no teacher with id = {id}");
+                return Ok(teachers);
+            }
+            catch
+            {
+                return BadRequest("Request invalid");
+            }
+        }
+
         [HttpPost]
-        public void Post([FromBody] string value)
+        public async Task<ActionResult> Create(Teacher teacher)
         {
+            try
+            {
+                await _teacherService.CreateTeacher(teacher);
+                return CreatedAtRoute(nameof(GetTeacher), new { id = teacher.IdTeacher }, teacher);
+            }
+            catch
+            {
+                return BadRequest("Request invalid");
+            }
         }
 
-        // PUT api/<TeachersController>/5
-        [HttpPut("{id}")]
-        public void Put(int id, [FromBody] string value)
+        [HttpPut("{id:int}")]
+        public async Task<ActionResult> Edit(int id, [FromBody] Teacher teacher)
         {
+            try
+            {
+                if(teacher.IdTeacher == id)
+                {
+                    await _teacherService.UpdateTeacher(teacher);
+                    return Ok($"Teacher with id = {id} has been successfully updated.");
+                }
+                else
+                {
+                    return BadRequest("Inconsistent data");
+                }
+            }
+            catch
+            {
+                return BadRequest("Request invalid");
+            }
         }
 
-        // DELETE api/<TeachersController>/5
-        [HttpDelete("{id}")]
-        public void Delete(int id)
+        [HttpDelete("{id:int}")]
+        public async Task<ActionResult> Delete(int id)
         {
-        }
-
-        private FilmeOutputModel ToOutputModel(Filme model)
-        {
-            return new FilmeOutputModel
+            try
             {
-                Id = model.Id,
-                Titulo = model.Titulo,
-                AnoLancamento = model.AnoLancamento,
-                Resumo = model.Resumo,
-                UltimoAcesso = DateTime.Now
-            };
-        }
-        private List<FilmeOutputModel> ToOutputModel(List<Filme> model)
-        {
-            return model.Select(item => ToOutputModel(item)).ToList();
-        }
-        private Filme ToDomainModel(FilmeInputModel inputModel)
-        {
-            return new Filme
+                var teacher = await _teacherService.GetTeacher(id);
+                if (teacher != null)
+                {
+                    await _teacherService.DeleteTeacher(teacher);
+                    return Ok($"Teacher Id = {id} was successfully deleted.");
+                }
+                else
+                {
+                    return NotFound($"Teacher with Id = {id} not found");
+                }
+            }
+            catch
             {
-                Id = inputModel.Id,
-                Titulo = inputModel.Titulo,
-                AnoLancamento = inputModel.AnoLancamento,
-                Resumo = inputModel.Resumo
-            };
-        }
-        private FilmeInputModel ToInputModel(Filme model)
-        {
-            return new FilmeInputModel
-            {
-                Id = model.Id,
-                Titulo = model.Titulo,
-                AnoLancamento = model.AnoLancamento,
-                Resumo = model.Resumo
-            };
+                return BadRequest("Request invalid");
+            }
         }
     }
 }
